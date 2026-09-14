@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Web3 Shop Tycoon</title>
+
+  <!-- iOS PWA 設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Web3Shop" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #151e32;
+      --card-border: #23304d;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --sol: #14f195;
+      --usdc: #2775ca;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-top: var(--safe-top);
+      padding-bottom: calc(var(--safe-bottom) + 70px);
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ヘッダー・資産ステータス */
+    header {
+      background: rgba(21, 30, 50, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-bull { background: rgba(20, 241, 149, 0.15); color: var(--sol); }
+    .badge-bear { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge-neutral { background: rgba(148, 163, 184, 0.15); color: var(--muted); }
+
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .wallet-item {
+      background: var(--bg);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      text-align: center;
+    }
+    .wallet-item .lbl { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .wallet-item .val { font-size: 13px; font-weight: bold; }
+
+    /* コンテナ & タブ */
+    main {
+      padding: 16px;
+      flex: 1;
+    }
+
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    h2 { font-size: 17px; margin-bottom: 12px; font-weight: 700; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: opacity 0.1s;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    .btn-sm { padding: 4px 8px; font-size: 11px; }
+    .btn-success { background: #059669; }
+    .btn-warning { background: var(--accent); color: #000; }
+
+    /* ログコンソール */
+    .log-container {
+      background: #060911;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      height: 120px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #94a3b8;
+    }
+    .log-item { margin-bottom: 4px; line-height: 1.4; }
+    .log-item.highlight { color: var(--sol); font-weight: bold; }
+    .log-item.alert { color: var(--danger); }
+
+    /* ボトムナビ */
+    nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(21, 30, 50, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-around;
+      padding-top: 8px;
+      padding-bottom: max(var(--safe-bottom), 10px);
+      z-index: 100;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      width: 25%;
+    }
+    .nav-item.active { color: var(--sol); font-weight: bold; }
+    .nav-icon { font-size: 18px; }
+  </style>
+</head>
+<body>
+
+  <!-- ステータスヘッダー -->
+  <header>
+    <div class="status-row">
+      <div>
+        <span style="font-weight: 800;">DAY <span id="day-count">1</span></span>
+        <span style="font-size: 11px; color: var(--muted); margin-left: 6px;">評判: ★<span id="reputation">1.0</span></span>
+      </div>
+      <div>
+        <span id="market-badge" class="badge badge-neutral">市場: 平穏</span>
+        <button id="btn-next-day" class="btn btn-warning btn-sm" style="margin-left: 8px;">1日進める ⏩</button>
+      </div>
+    </div>
+    <div class="wallet-grid">
+      <div class="wallet-item">
+        <div class="lbl">法定通貨 (JPY)</div>
+        <div class="val" id="val-jpy">¥100,000</div>
+      </div>
+      <div class="wallet-item">
+        <div class="lbl">USDC (1$=150円)</div>
+        <div class="val" id="val-usdc" style="color: var(--usdc);">$500</div>
+      </div>
+      <div class="wallet-item">
+        <div class="lbl">SOL (<span id="sol-rate">¥20,000</span>)</div>
+        <div class="val" id="val-sol" style="color: var(--sol);">2.00 SOL</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB 1: 店舗ダッシュボード & ログ -->
+    <div id="tab-shop" class="view-panel active">
+      <h2>🏪 店舗運営コンソール</h2>
+      <div class="card">
+        <div class="card-row">
+          <div>
+            <div style="font-size: 14px; font-weight: bold;">店頭AIエージェント</div>
+            <div style="font-size: 11px; color: var(--muted);">需要予測と自動SNS投稿で客足を誘引</div>
+          </div>
+          <button id="btn-boost-sns" class="btn btn-sm">Xへ自動投稿 (¥2,000)</button>
+        </div>
+        <div style="font-size: 12px; margin-top: 8px;">
+          本日の来店見込み: <b id="visitor-estimate">10〜20人</b> (Buzz度: <span id="buzz-level">10</span>)
+        </div>
+      </div>
+
+      <h2>📦 商品カタログ (販売設定)</h2>
+      <div id="product-list"></div>
+
+      <h2>📜 オペレーションログ</h2>
+      <div class="log-container" id="log-list">
+        <div class="log-item">ショップシステムが正常に起動しました。</div>
+      </div>
+    </div>
+
+    <!-- TAB 2: スワップ / DeFi (資金管理) -->
+    <div id="tab-swap" class="view-panel">
+      <h2>💱 資金管理・スワップ (DEX)</h2>
+      <div class="card">
+        <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
+          暗号資産で得た売上を即時円転して製造費に回すか、値上がりを狙って保有するかを選択できます。
+        </div>
+        <div class="card-row" style="margin-top: 14px;">
+          <div>
+            <b>SOL ➔ JPY</b><br>
+            <span style="font-size: 11px; color: var(--muted);">1 SOL を現在のレートで利確</span>
+          </div>
+          <button id="btn-swap-sol" class="btn btn-sm btn-success">1 SOL 円転</button>
+        </div>
+        <div class="card-row" style="margin-top: 14px;">
+          <div>
+            <b>USDC ➔ JPY</b><br>
+            <span style="font-size: 11px; color: var(--muted);">100 USDC を換金 (1$=150円)</span>
+          </div>
+          <button id="btn-swap-usdc" class="btn btn-sm btn-success">100 USDC 円転</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: 設備・AIアップグレード -->
+    <div id="tab-upgrade" class="view-panel">
+      <h2>⚡ システム & 設備アップグレード</h2>
+      <div id="upgrade-list"></div>
+    </div>
+  </main>
+
+  <!-- ボトムナビゲーション -->
+  <nav>
+    <button class="nav-item active" data-tab="tab-shop">
+      <span class="nav-icon">🏪</span>
+      <span>店舗</span>
+    </button>
+    <button class="nav-item" data-tab="tab-swap">
+      <span class="nav-icon">💱</span>
+      <span>資金・DEX</span>
+    </button>
+    <button class="nav-item" data-tab="tab-upgrade">
+      <span class="nav-icon">⚡</span>
+      <span>拡張</span>
+    </button>
+  </nav>
+
+  <script>
+    // --- ゲーム状態管理 ---
+    const STATE = {
+      day: 1,
+      reputation: 1.0,
+      buzz: 10,
+      wallet: {
+        jpy: 100000,
+        usdc: 500,
+        sol: 2.0
+      },
+      solRate: 20000,
+      market: 'neutral', // 'bull' | 'bear' | 'neutral'
+      products: [
+        {
+          id: 'tee',
+          name: 'Web3グラフィックTシャツ',
+          type: 'pod', // オンデマンド（在庫不要）
+          podCost: 2800,
+          priceUsdc: 35,
+          active: true
+        },
+        {
+          id: 'sticker',
+          name: 'クリプト耐水ステッカーパック',
+          type: 'pod',
+          podCost: 600,
+          priceUsdc: 8,
+          active: true
+        },
+        {
+          id: 'hardware',
+          name: '高機能ハードウェアウォレット',
+          type: 'stock', // 買い取り在庫
+          stock: 3,
+          buyCost: 15000,
+          priceSol: 1.2,
+          active: true
+        }
+      ],
+      upgrades: [
+        {
+          id: 'solana_pay',
+          name: 'Solana Pay 即時QR決済',
+          desc: 'SOL決済客の来店率が25%向上',
+          costJpy: 30000,
+          bought: false
+        },
+        {
+          id: 'ai_support',
+          name: '24h AIカスタマーエージェント',
+          desc: '不着クレームを自動調停し評判低下を防ぐ',
+          costJpy: 50000,
+          bought: false
+        },
+        {
+          id: 'smart_case',
+          name: 'スマートセーフショーケース',
+          desc: '高額商品の盗難・破損リスクをゼロにする',
+          costJpy: 80000,
+          bought: false
+        }
+      ]
+    };
+
+    // --- DOM要素ヘルパー ---
+    const $ = (id) => document.getElementById(id);
+
+    function log(msg, type = '') {
+      const el = $('log-list');
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.innerText = `[Day ${STATE.day}] ${msg}`;
+      el.prepend(item);
+    }
+
+    function updateUI() {
+      $('day-count').innerText = STATE.day;
+      $('reputation').innerText = STATE.reputation.toFixed(1);
+      $('val-jpy').innerText = `¥${Math.floor(STATE.wallet.jpy).toLocaleString()}`;
+      $('val-usdc').innerText = `$${Math.floor(STATE.wallet.usdc).toLocaleString()}`;
+      $('val-sol').innerText = `${STATE.wallet.sol.toFixed(2)} SOL`;
+      $('sol-rate').innerText = `¥${Math.floor(STATE.solRate).toLocaleString()}`;
+      $('buzz-level').innerText = STATE.buzz;
+      $('visitor-estimate').innerText = `${Math.floor(STATE.buzz * 0.8)}〜${Math.floor(STATE.buzz * 1.5)}人`;
+
+      // マーケットバッジ
+      const badge = $('market-badge');
+      if (STATE.market === 'bull') {
+        badge.className = 'badge badge-bull';
+        badge.innerText = '市場: 強気 (Bull 🚀)';
+      } else if (STATE.market === 'bear') {
+        badge.className = 'badge badge-bear';
+        badge.innerText = '市場: 弱気 (Bear 📉)';
+      } else {
+        badge.className = 'badge badge-neutral';
+        badge.innerText = '市場: 平穏 (Neutral)';
+      }
+
+      // 商品リスト描画
+      const pContainer = $('product-list');
+      pContainer.innerHTML = '';
+      STATE.products.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <div class="card-row">
+            <div>
+              <b>${p.name}</b>
+              <div style="font-size:11px; color:var(--muted)">
+                ${p.type === 'pod' ? `受注生産 (原価: ¥${p.podCost})` : `実物在庫: ${p.stock}個 (仕入原価: ¥${p.buyCost})`}
+              </div>
+            </div>
+            <span style="font-weight:bold; color:${p.priceUsdc ? 'var(--usdc)' : 'var(--sol)'}">
+              ${p.priceUsdc ? `$${p.priceUsdc} USDC` : `${p.priceSol} SOL`}
+            </span>
+          </div>
+          ${p.type === 'stock' ? `
+            <div style="margin-top:8px; display:flex; justify-content:flex-end;">
+              <button class="btn btn-sm" onclick="restockItem('${p.id}')">1個仕入れる (¥${p.buyCost})</button>
+            </div>
+          ` : ''}
+        `;
+        pContainer.appendChild(div);
+      });
+
+      // アップグレード描画
+      const uContainer = $('upgrade-list');
+      uContainer.innerHTML = '';
+      STATE.upgrades.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <div class="card-row">
+            <div>
+              <b>${u.name}</b>
+              <div style="font-size:11px; color:var(--muted)">${u.desc}</div>
+            </div>
+            <button class="btn btn-sm ${u.bought ? 'btn-success' : ''}" 
+              ${u.bought || STATE.wallet.jpy < u.costJpy ? 'disabled' : ''} 
+              onclick="buyUpgrade('${u.id}')">
+              ${u.bought ? '導入済み' : `導入 (¥${u.costJpy.toLocaleString()})`}
+            </button>
+          </div>
+        `;
+        uContainer.appendChild(div);
+      });
+    }
+
+    // --- ゲームループ（1日進行） ---
+    function nextDay() {
+      STATE.day += 1;
+
+      // 1. 暗号資産市場の変動シミュレーション
+      const rand = Math.random();
+      if (rand < 0.25) {
+        STATE.market = 'bull';
+        STATE.solRate *= (1 + (Math.random() * 0.15 + 0.05)); // +5%〜20%
+        log('クリプト相場が急騰！Web3界隈の購買意欲が上昇中。', 'highlight');
+      } else if (rand < 0.5) {
+        STATE.market = 'bear';
+        STATE.solRate *= (1 - (Math.random() * 0.12 + 0.03)); // -3%〜15%
+        log('相場が下落調整。顧客の財布の紐が固くなっています。', 'alert');
+      } else {
+        STATE.market = 'neutral';
+        STATE.solRate *= (1 + (Math.random() * 0.06 - 0.03)); // ±3%
+      }
+
+      // 2. 来店者と注文の計算
+      const hasSolanaPay = STATE.upgrades.find(u => u.id === 'solana_pay').bought;
+      let visitorCount = Math.floor((STATE.buzz * (Math.random() * 0.7 + 0.8)) * (hasSolanaPay ? 1.25 : 1.0));
+      if (STATE.market === 'bull') visitorCount = Math.floor(visitorCount * 1.4);
+      if (STATE.market === 'bear') visitorCount = Math.floor(visitorCount * 0.7);
+
+      let dayUsdcEarned = 0;
+      let daySolEarned = 0;
+      let dayPodCosts = 0;
+      let orderCount = 0;
+
+      for (let i = 0; i < visitorCount; i++) {
+        // 購買確率
+        if (Math.random() < 0.35 * STATE.reputation) {
+          const product = STATE.products[Math.floor(Math.random() * STATE.products.length)];
+          
+          if (product.type === 'pod') {
+            // 受注生産（オンデマンド出荷）
+            if (STATE.wallet.jpy >= product.podCost) {
+              STATE.wallet.jpy -= product.podCost;
+              dayPodCosts += product.podCost;
+              dayUsdcEarned += product.priceUsdc;
+              orderCount++;
+            }
+          } else if (product.type === 'stock') {
+            // 在庫品
+            if (product.stock > 0) {
+              product.stock--;
+              daySolEarned += product.priceSol;
+              orderCount++;
+            }
+          }
+        }
+      }
+
+      // 資産加算
+      STATE.wallet.usdc += dayUsdcEarned;
+      STATE.wallet.sol += daySolEarned;
+
+      log(`来店 ${visitorCount}名 / 成立 ${orderCount}件 (+$${dayUsdcEarned} USDC, +${daySolEarned.toFixed(2)} SOL / 製造原価 -¥${dayPodCosts.toLocaleString()})`);
+
+      // 3. ランダムイベント発生
+      handleRandomEvent();
+
+      // 自然減衰（Buzz度）
+      STATE.buzz = Math.max(8, Math.floor(STATE.buzz * 0.9));
+
+      updateUI();
+    }
+
+    function handleRandomEvent() {
+      const r = Math.random();
+      const hasAiSupport = STATE.upgrades.find(u => u.id === 'ai_support').bought;
+      const hasSmartCase = STATE.upgrades.find(u => u.id === 'smart_case').bought;
+
+      if (r < 0.12) {
+        if (hasAiSupport) {
+          log('配送遅延が発生しましたが、AIエージェントが迅速にトラッキングを共有し評価を維持しました。', 'highlight');
+        } else {
+          STATE.reputation = Math.max(0.5, STATE.reputation - 0.2);
+          log('海外配送で不着クレーム！対応が遅れストアの評判が低下しました（-★0.2）', 'alert');
+        }
+      } else if (r < 0.2) {
+        if (hasSmartCase) {
+          log('不審なアクセスを検知しましたが、スマートケースの電磁ロックが作動し安全です。');
+        } else {
+          const hw = STATE.products.find(p => p.id === 'hardware');
+          if (hw.stock > 0) {
+            hw.stock--;
+            log('展示中のハードウェアウォレットが紛失・破損しました（在庫-1）', 'alert');
+          }
+        }
+      } else if (r < 0.28) {
+        STATE.buzz += 15;
+        log('Web3インフルエンサーがストアのTシャツを着用して投稿！Buzz度急上昇（+15）', 'highlight');
+      }
+    }
+
+    // --- プレイヤーアクション ---
+    window.restockItem = function(id) {
+      const p = STATE.products.find(x => x.id === id);
+      if (STATE.wallet.jpy >= p.buyCost) {
+        STATE.wallet.jpy -= p.buyCost;
+        p.stock++;
+        log(`${p.name} を1個仕入れました (-¥${p.buyCost.toLocaleString()})`);
+        updateUI();
+      } else {
+        alert('日本円の残高が足りません。DEXで暗号資産を換金してください。');
+      }
+    };
+
+    window.buyUpgrade = function(id) {
+      const u = STATE.upgrades.find(x => x.id === id);
+      if (STATE.wallet.jpy >= u.costJpy && !u.bought) {
+        STATE.wallet.jpy -= u.costJpy;
+        u.bought = true;
+        log(`新設備 [${u.name}] を導入しました！`, 'highlight');
+        updateUI();
+      }
+    };
+
+    // --- イベントリスナー ---
+    $('btn-next-day').addEventListener('click', nextDay);
+
+    $('btn-boost-sns').addEventListener('click', () => {
+      if (STATE.wallet.jpy >= 2000) {
+        STATE.wallet.jpy -= 2000;
+        STATE.buzz += 10;
+        log('AIがプロモーション投稿を生成・配信しました (Buzz +10)');
+        updateUI();
+      } else {
+        alert('広告費（¥2,000）が不足しています。');
+      }
+    });
+
+    $('btn-swap-sol').addEventListener('click', () => {
+      if (STATE.wallet.sol >= 1.0) {
+        STATE.wallet.sol -= 1.0;
+        STATE.wallet.jpy += STATE.solRate;
+        log(`DEXスワップ: 1 SOL ➔ ¥${Math.floor(STATE.solRate).toLocaleString()}`, 'highlight');
+        updateUI();
+      } else {
+        alert('1 SOL 以上の残高が必要です。');
+      }
+    });
+
+    $('btn-swap-usdc').addEventListener('click', () => {
+      if (STATE.wallet.usdc >= 100) {
+        STATE.wallet.usdc -= 100;
+        const jpy = 100 * 150;
+        STATE.wallet.jpy += jpy;
+        log(`USDC換金: 100 USDC ➔ ¥${jpy.toLocaleString()}`, 'highlight');
+        updateUI();
+      } else {
+        alert('100 USDC 以上の残高が必要です。');
+      }
+    });
+
+    // タブ切り替え
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        $(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // 初期描画
+    updateUI();
+  </script>
+</body>
+</html>
